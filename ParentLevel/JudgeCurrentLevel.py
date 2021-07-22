@@ -38,3 +38,28 @@ def getcurrentLevel(url,status):
     else:
         print('阶级为'+'1'+ ' ' + url)
         return 1
+
+
+def Analysis(url):
+    linkTest = parse.urlparse(url)
+
+    print('1.result.scheme : 网络协议')
+    print(linkTest.scheme)
+
+    print('2.result.netloc: 服务器位置（也有可能是用户信息）')
+    print(linkTest.netloc)
+
+    print('3.result.path: 网页文件在服务器中的位置')
+    print(linkTest.path)
+
+    print('4.result.params: 可选参数')
+    print(linkTest.params)
+
+    print('5.result.query: &连接键值对')
+    print(linkTest.query)
+
+    print('result.fragment:')
+    print(linkTest.fragment)
+
+url = 'http://www.shaanxi.gov.cn/xw/ztzl/zxzt/zkzl/2020n/'
+Analysis(url)
