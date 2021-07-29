@@ -288,7 +288,7 @@ def main():
     count = 1
     getresultFromFirstresult(firstresult)
     for key in firstresult:
-        print("标题%d：" %count +"      级别：%d"% key.status +  "           " + key.title  + "       链接 ：" + key.url + "        父链接 ：" + key.preurl)
+        # print("标题%d：" %count +"      级别：%d"% key.status +  "           " + key.title  + "       链接 ：" + key.url + "        父链接 ：" + key.preurl)
         count = count + 1
         a = Article(key.url, language='zh')
         a.download()
