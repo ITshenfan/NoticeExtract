@@ -35,23 +35,23 @@ from ExtractText import getTextFromLink
 def Analysis(url):
     linkTest = parse.urlparse(url)
 
-    print('1.result.scheme : 网络协议')
-    print(linkTest.scheme)
-
-    print('2.result.netloc: 服务器位置（也有可能是用户信息）')
-    print(linkTest.netloc)
-
-    print('3.result.path: 网页文件在服务器中的位置')
-    print(linkTest.path)
-
-    print('4.result.params: 可选参数')
-    print(linkTest.params)
-
-    print('5.result.query: &连接键值对')
-    print(linkTest.query)
-
-    print('result.fragment:')
-    print(linkTest.fragment)
+    # print('1.result.scheme : 网络协议')
+    # print(linkTest.scheme)
+    #
+    # print('2.result.netloc: 服务器位置（也有可能是用户信息）')
+    # print(linkTest.netloc)
+    #
+    # print('3.result.path: 网页文件在服务器中的位置')
+    # print(linkTest.path)
+    #
+    # print('4.result.params: 可选参数')
+    # print(linkTest.params)
+    #
+    # print('5.result.query: &连接键值对')
+    # print(linkTest.query)
+    #
+    # print('result.fragment:')
+    # print(linkTest.fragment)
 
 
 
@@ -140,7 +140,6 @@ def analysisurl(testurl):
         response = requests.get(testurl, headers=headers)  # 获取网页数据
         response.encoding = response.apparent_encoding  # 当获取的网页有乱码时加
         soup = BeautifulSoup(response.text, 'html.parser')
-        bf = soup.find('div', class_='view TRS_UEDITOR trs_paper_default trs_web')
         return soup
     except:
         print("服务器拒绝连接........")
@@ -148,10 +147,14 @@ def analysisurl(testurl):
         print("ZZzzzz...")
         time.sleep(5)
         print("做了个美美的梦，睡的很好, 那我们继续吧...")
+        return
 
 # 判断具备有效招聘信息的1级链接，含有公告专栏的1级链接
 def getresult(testurl):
     soup = analysisurl(testurl)
+    # bf = soup.find('div', class_='view TRS_UEDITOR trs_paper_default trs_web')
+    if(soup == ''):
+        return
     for x in soup.find_all('a',href = True):
         if(x.string is not None):
             title = str(x.string).replace('\n', '').replace('\t', '').replace(' ', '')
@@ -175,6 +178,8 @@ def getresult(testurl):
 def getresultFromSecondresult(setArray):
     for key in setArray:
         soup = analysisurl(key.url)
+        if(soup == ''):
+            return
         for x in soup.find_all('a', href=True):
             if (x.string is not None):
                 title = str(x.string).replace('\n', '').replace('\t', '').replace(' ', '')
@@ -196,6 +201,8 @@ def getresultFromSecondresult(setArray):
 def getresultFromMoreresult(setArray):
     for key in setArray:
         soup = analysisurl(key.url)
+        if(soup == ''):
+            return
         for x in soup.find_all('a', href=True):
             if (x.string is not None):
                 title = str(x.string).replace('\n', '').replace('\t', '').replace(' ', '')
@@ -214,16 +221,16 @@ def getresultFromMoreresult(setArray):
 def getresultFromMoreresult(setArray):
     for key in setArray:
         soup = analysisurl(key.url)
+        if(soup == ''):
+            return
         for x in soup.find_all('a', href=True):
             if (x.string is not None):
                 title = str(x.string).replace('\n', '').replace('\t', '').replace(' ', '')
                 url = GetLinkHasNetloc(key.url, x['href'])
                 isNotValidLink = any(word if word in x['href'] else False for word in invalidLink)
                 if (isNotValidLink):
-                    # print('×无效链接：' + url)
                     pass
                 else:
-                    # print('✓正常标题:' + url + '    标题:' + title)
                     if ('招聘' in title):
                         node3 = urlNode.make_struct(url, title, 3, key.url)
                         firstresult.add(node3)
@@ -233,6 +240,8 @@ def getresultFromMoreresult(setArray):
 def getresultFromFirstresult(setArray):
     for key in setArray.copy():
         soup = analysisurl(key.url)
+        if(soup == ''):
+            return
         for x in soup.find_all('a', href=True):
             if (x.string is not None):
                 title = str(x.string).replace('\n', '').replace('\t', '').replace(' ', '')
@@ -250,15 +259,18 @@ def getresultFromFirstresult(setArray):
 db = pymysql.connect(host='localhost',
                                      port=3306,
                                      user='root',
-                                     password='12345678',
-                                     db='shanxiyuan',
-                                     charset='utf8'
-                                     )  # 连接数据库
+                                     password='root',
+                                     database='shanxiyuan',
+                                     charset='utf8',
+                                     unix_socket = '/tmp/mysql.sock'
+
+)  # 连接数据库
+print(db)
 
 cursor = db.cursor()
-cursor.execute("DROP TABLE IF EXISTS ExaminationSituation")
+cursor.execute("DROP TABLE IF EXISTS TreeTest")
 
-sql = """CREATE TABLE ExaminationSituation (
+sql = """CREATE TABLE ExaminationSituation21 (
                                       ID INT PRIMARY KEY AUTO_INCREMENT,
                                       PARENTID INT(11),
                                       LINK  VARCHAR(255),
@@ -275,39 +287,85 @@ except:
     cursor.execute(sql)
 
 def main():
+    # 选择数据源
+    read_path = "../DataSourceFile/sp_govs.xlsx"
+
+    bk = xlrd.open_workbook(read_path)
+    shxrange = range(bk.nsheets)
+
+    try:
+        sh = bk.sheet_by_name("sp_govs")
+    except:
+        print("no sheet in %s named sheet1" % read_path)
     print('this message is from main function')
-    testurl = 'http://www.shaanxi.gov.cn/'
-    print(testurl)
-    getresult(testurl)
-    print('=' * 40)
-    getresultFromSecondresult(secondresult)
-    print('=' * 40)
-    getresultFromMoreresult(moreresult)
-    print('=' * 40)
-    print("结果")
-    count = 1
-    getresultFromFirstresult(firstresult)
-    for key in firstresult:
-        print("标题%d：" %count +"      级别：%d"% key.status +  "           " + key.title  + "       链接 ：" + key.url + "        父链接 ：" + key.preurl)
-        count = count + 1
-        a = Article(key.url, language='zh')
-        a.download()
-        a.parse()
-        db.ping(reconnect=True)
-        status = 2;
-        sqlw = """INSERT INTO ExaminationSituation (PARENTID,LINK, TITLE, TEXT) VALUES (%d,%s,%s,%s)"""
-        data = (key.status, "'%s'" % key.url, "'%s'" % key.title, "'%s'" % a.text)
+    nrows = sh.nrows
+    x = 1
+    for i in range(5):
+        testurl = sh.cell_value(i, 5)  # 依次读取每行第11列的数据，也就是 URL
+        print("2、访问第%d个链接:" %x)
+        x = x + 1
+        print(testurl)
+        getresult(testurl)
+        print('=' * 40)
+        getresultFromSecondresult(secondresult)
+        print('=' * 40)
+        getresultFromMoreresult(moreresult)
+        print('=' * 40)
+        print("结果")
+        count = 1
+        getresultFromFirstresult(firstresult)
+        for key in firstresult:
+            print(
+                "标题%d：" % count + "      级别：%d" % key.status + "           " + key.title + "       链接 ：" + key.url + "        父链接 ：" + key.preurl)
+            count = count + 1
+            a = Article(key.url, language='zh')
+            if(a.download_state == 404):
+                continue
+            a.download()
+            if(a.download()):
+                a.parse()
+                db.ping(reconnect=True)
+                status = 2;
+                sqlw = """INSERT INTO ExaminationSituation21 (PARENTID,LINK, TITLE, TEXT) VALUES (%d,%s,%s,%s)"""
+                data = (key.status, "'%s'" % key.url, "'%s'" % key.title, "'%s'" % a.text)
 
-        try:
-            cursor.execute(sqlw % data)
-            db.commit()
-            print('插入数据成功')
-        except:
-            db.rollback()
-            print("插入数据失败")
-        db.close()
+                try:
+                    cursor.execute(sqlw % data)
+                    db.commit()
+                    print('插入数据成功')
+                except:
+                    db.rollback()
+                    print("插入数据失败")
+                db.close()
+        for key in secondresult:
+            print(
+                "标题%d：" % count + "      级别：%d" % key.status + "           " + key.title + "       链接 ：" + key.url + "        父链接 ：" + key.preurl)
+            count = count + 1
+            a = Article(key.url, language='zh')
+            if(a.download_state == 404):
+                continue
+            a.download()
+            if(a.download()):
+                a.parse()
+                db.ping(reconnect=True)
+                status = 2;
+                sqlw = """INSERT INTO ExaminationSituation21 (PARENTID,LINK, TITLE, TEXT) VALUES (%d,%s,%s,%s)"""
+                data = (key.status, "'%s'" % key.url, "'%s'" % key.title, "'%s'" % a.text)
 
-    print('=' * 40)
+                try:
+                    cursor.execute(sqlw % data)
+                    db.commit()
+                    print('插入数据成功')
+                except:
+                    db.rollback()
+                    print("插入数据失败")
+                db.close()
+
+        print('=' * 40)
+        print('=' * 40)
+
+
+
 
 
 
