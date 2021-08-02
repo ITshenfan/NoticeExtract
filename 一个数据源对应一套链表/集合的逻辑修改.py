@@ -61,7 +61,6 @@ def GetLinkHasNetloc(firstlink,childlink):
     # 如果域名不为空，说明是全部路径
     if (linkTest.netloc != ""):
         return childlink
-    # 非全路径
     else:
         my_url = parse.urlparse(firstlink)
         if (childlink[:1] == '.'):
@@ -79,9 +78,6 @@ def GetLinkHasNetloc(firstlink,childlink):
             resultLink = my_url.scheme + '://' + rightLink
             if(my_url.netloc in resultLink):
                 return resultLink
-
-
-
 
 # 使用类创建结构体
 class urlNode(object):
@@ -161,7 +157,7 @@ def getresult(testurl):
             url = GetLinkHasNetloc(testurl, x['href'])
             isNotValidLink = any(word if word in x['href'] else False for word in invalidLink)
             if(isNotValidLink):
-                # print('×无效链接：' + url)
+                print('×无效链接：' + url)
                 pass
             else:
                 # print('✓正常标题:' + url + '    标题:' + title)
@@ -270,11 +266,11 @@ print(db)
 cursor = db.cursor()
 cursor.execute("DROP TABLE IF EXISTS TreeTest")
 
-sql = """CREATE TABLE ExaminationSituation21 (
+sql = """CREATE TABLE ExaminationSituation2 (
                                       ID INT PRIMARY KEY AUTO_INCREMENT,
                                       PARENTID INT(11),
                                       LINK  VARCHAR(255),
-                                      TITLE VARCHAR(255),
+                                      TITLE TEXT,
                                       TEXT TEXT
                                       )"""
 
@@ -300,18 +296,14 @@ def main():
     print('this message is from main function')
     nrows = sh.nrows
     x = 1
-    for i in range(5):
+    for i in range(nrows):
         testurl = sh.cell_value(i, 5)  # 依次读取每行第11列的数据，也就是 URL
         print("2、访问第%d个链接:" %x)
         x = x + 1
         print(testurl)
         getresult(testurl)
-        print('=' * 40)
         getresultFromSecondresult(secondresult)
-        print('=' * 40)
         getresultFromMoreresult(moreresult)
-        print('=' * 40)
-        print("结果")
         count = 1
         getresultFromFirstresult(firstresult)
         for key in firstresult:
@@ -319,14 +311,14 @@ def main():
                 "标题%d：" % count + "      级别：%d" % key.status + "           " + key.title + "       链接 ：" + key.url + "        父链接 ：" + key.preurl)
             count = count + 1
             a = Article(key.url, language='zh')
-            if(a.download_state == 404):
-                continue
-            a.download()
-            if(a.download()):
+            html = requests.head(key.url)
+            re = html.status_code
+            if(re != 404):
+                a.download()
                 a.parse()
                 db.ping(reconnect=True)
                 status = 2;
-                sqlw = """INSERT INTO ExaminationSituation21 (PARENTID,LINK, TITLE, TEXT) VALUES (%d,%s,%s,%s)"""
+                sqlw = """INSERT INTO ExaminationSituation2 (PARENTID,LINK, TITLE, TEXT) VALUES (%d,%s,%s,%s)"""
                 data = (key.status, "'%s'" % key.url, "'%s'" % key.title, "'%s'" % a.text)
 
                 try:
@@ -336,38 +328,16 @@ def main():
                 except:
                     db.rollback()
                     print("插入数据失败")
-                db.close()
-        for key in secondresult:
-            print(
-                "标题%d：" % count + "      级别：%d" % key.status + "           " + key.title + "       链接 ：" + key.url + "        父链接 ：" + key.preurl)
-            count = count + 1
-            a = Article(key.url, language='zh')
-            if(a.download_state == 404):
-                continue
-            a.download()
-            if(a.download()):
-                a.parse()
-                db.ping(reconnect=True)
-                status = 2;
-                sqlw = """INSERT INTO ExaminationSituation21 (PARENTID,LINK, TITLE, TEXT) VALUES (%d,%s,%s,%s)"""
-                data = (key.status, "'%s'" % key.url, "'%s'" % key.title, "'%s'" % a.text)
 
-                try:
-                    cursor.execute(sqlw % data)
-                    db.commit()
-                    print('插入数据成功')
-                except:
-                    db.rollback()
-                    print("插入数据失败")
-                db.close()
-
-        print('=' * 40)
-        print('=' * 40)
-
-
-
-
+    firstresult.clear()
+    secondresult.clear()
+    moreresult.clear()
+    print('=' * 40)
 
 
 if __name__ == '__main__':
     main()
+    db.close()
+
+
+

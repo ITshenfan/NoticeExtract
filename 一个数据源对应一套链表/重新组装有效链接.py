@@ -31,29 +31,20 @@ from FindChildLinks import getThreeLink
 
 from ParentLevel import JudgeCurrentLevel
 from ExtractText import getTextFromLink
-# 判断二级链接是否具有域名，没有的话需要拼接,返回二级的http链接
-def Analysis(url):
-    linkTest = parse.urlparse(url)
-
-    # print('1.result.scheme : 网络协议')
-    # print(linkTest.scheme)
-    #
-    # print('2.result.netloc: 服务器位置（也有可能是用户信息）')
-    # print(linkTest.netloc)
-    #
-    # print('3.result.path: 网页文件在服务器中的位置')
-    # print(linkTest.path)
-    #
-    # print('4.result.params: 可选参数')
-    # print(linkTest.params)
-    #
-    # print('5.result.query: &连接键值对')
-    # print(linkTest.query)
-    #
-    # print('result.fragment:')
-    # print(linkTest.fragment)
 
 
+
+def get_proxy(url):
+    try:
+        if(url == ''):
+            return None
+        response = requests.get(url)
+        if response.status_code == 200:
+            # print(response.text)
+            return response.text
+        return None
+    except ConnectionError:
+        return None
 
 # 判断二级链接是否具有域名，没有的话需要拼接,返回二级的http链接
 def GetLinkHasNetloc(firstlink,childlink):
@@ -61,24 +52,41 @@ def GetLinkHasNetloc(firstlink,childlink):
     # 如果域名不为空，说明是全部路径
     if (linkTest.netloc != ""):
         return childlink
-    # 非全路径
-    else:
-        my_url = parse.urlparse(firstlink)
-        if (childlink[:1] == '.'):
-            rightLink = my_url.netloc + my_url.path + childlink[1:]
-            if('//' in rightLink):
-                rightLink = rightLink.replace('//', '/')
-            resultLink = my_url.scheme + '://' + rightLink
-            if('index.html' in resultLink):
-                resultLink = resultLink.replace('/index.html','')
+
+    # 在这里对父链接进行解析
+    my_url = parse.urlparse(firstlink)
+
+    # 如果是/开头，则拼接父链接的域名，无效则拼接域名+路径+/
+    if (childlink[:1] == '/'):
+        resultLink = my_url.scheme + '://' + my_url.netloc + childlink
+        if(get_proxy(resultLink) != None):
             return resultLink
         else:
-            rightLink = my_url.netloc + my_url.path + childlink[1:]
-            if ('//' in rightLink):
-                rightLink = rightLink.replace('//', '/')
-            resultLink = my_url.scheme + '://' + rightLink
-            if(my_url.netloc in resultLink):
+            resultLink = my_url.scheme + '://' + my_url.netloc + my_url.path + childlink
+            if (get_proxy(resultLink) != None):
                 return resultLink
+
+    # 如果是绝对路径
+    if (childlink[:1] == '.'):
+        rightLink = my_url.netloc + my_url.path + childlink[1:]
+        if('//' in rightLink):
+            rightLink = rightLink.replace('//', '/')
+        resultLink = my_url.scheme + '://' + rightLink
+        if('index.html' in resultLink):
+            resultLink = resultLink.replace('/index.html','')
+        if('%@.html' in resultLink):
+            resultLink = resultLink.replace('/%@.html', '')
+        if(get_proxy(resultLink) != None):
+            return resultLink
+    else:
+        rightLink = my_url.netloc + my_url.path + childlink[1:]
+        if ('//' in rightLink):
+            rightLink = rightLink.replace('//', '/')
+        resultLink = my_url.scheme + '://' + rightLink
+        if(my_url.netloc in resultLink):
+            if(get_proxy(resultLink) != None):
+                return resultLink
+    return ''
 
 
 
@@ -159,20 +167,21 @@ def getresult(testurl):
         if(x.string is not None):
             title = str(x.string).replace('\n', '').replace('\t', '').replace(' ', '')
             url = GetLinkHasNetloc(testurl, x['href'])
-            isNotValidLink = any(word if word in x['href'] else False for word in invalidLink)
-            if(isNotValidLink):
-                # print('×无效链接：' + url)
-                pass
-            else:
-                # print('✓正常标题:' + url + '    标题:' + title)
-                if('招聘' in title):
-                    node1 = urlNode.make_struct(url,title,1,testurl)
-                    firstresult.add(node1)
-                isincludeUse = any(word if word in title else False for word in possibleUse)
-                if (isincludeUse):
-                    print('我有可能具备有效的子链接哦:    ' + title + '    ' + url)
-                    node2 = urlNode.make_struct(url,title,1,testurl)
-                    secondresult.add(node2)
+            if(url != ''):
+                isNotValidLink = any(word if word in x['href'] else False for word in invalidLink)
+                if(isNotValidLink):
+                    # print('×无效链接：' + url)
+                    pass
+                else:
+                    # print('✓正常标题:' + url + '    标题:' + title)
+                    if('招聘' in title):
+                        node1 = urlNode.make_struct(url,title,1,testurl)
+                        firstresult.add(node1)
+                    isincludeUse = any(word if word in title else False for word in possibleUse)
+                    if (isincludeUse):
+                        print('我有可能具备有效的子链接哦:    ' + title + '    ' + url)
+                        node2 = urlNode.make_struct(url,title,1,testurl)
+                        secondresult.add(node2)
 
 # 可能具备有效招聘信息的1级链接
 def getresultFromSecondresult(setArray):
@@ -184,18 +193,19 @@ def getresultFromSecondresult(setArray):
             if (x.string is not None):
                 title = str(x.string).replace('\n', '').replace('\t', '').replace(' ', '')
                 url = GetLinkHasNetloc(key.url, x['href'])
-                isNotValidLink = any(word if word in x['href'] else False for word in invalidLink)
-                if (isNotValidLink):
-                    # print('×无效链接：' + url)
-                    pass
-                else:
-                    # print('✓正常标题:' + url + '    标题:' + title)
-                    if ('招聘' in title):
-                        node3 = urlNode.make_struct(url, title, 2, key.url)
-                        firstresult.add(node3)
-                    if('更多' in title):
-                        node4 = urlNode.make_struct(url, title, 2, key.url)
-                        moreresult.add(node4)
+                if(url != ''):
+                    isNotValidLink = any(word if word in x['href'] else False for word in invalidLink)
+                    if (isNotValidLink):
+                        # print('×无效链接：' + url)
+                        pass
+                    else:
+                        # print('✓正常标题:' + url + '    标题:' + title)
+                        if ('招聘' in title):
+                            node3 = urlNode.make_struct(url, title, 2, key.url)
+                            firstresult.add(node3)
+                        if('更多' in title):
+                            node4 = urlNode.make_struct(url, title, 2,2 key.url)
+                            moreresult.add(node4)
 
 # 一级链接中，可能含有二级链接的链接跳转更多
 def getresultFromMoreresult(setArray):
@@ -207,15 +217,16 @@ def getresultFromMoreresult(setArray):
             if (x.string is not None):
                 title = str(x.string).replace('\n', '').replace('\t', '').replace(' ', '')
                 url = GetLinkHasNetloc(key.url, x['href'])
-                isNotValidLink = any(word if word in x['href'] else False for word in invalidLink)
-                if (isNotValidLink):
-                    # print('×无效链接：' + url)
-                    pass
-                else:
-                    # print('✓正常标题:' + url + '    标题:' + title)
-                    if ('招聘' in title):
-                        node3 = urlNode.make_struct(url, title, 3, key.url)
-                        firstresult.add(node3)
+                if(url != ''):
+                    isNotValidLink = any(word if word in x['href'] else False for word in invalidLink)
+                    if (isNotValidLink):
+                        print('×无效链接：' + url)
+                        pass
+                    else:
+                        print('✓正常标题:' + url + '    标题:' + title)
+                        if ('招聘' in title):
+                            node3 = urlNode.make_struct(url, title, 3, key.url)
+                            firstresult.add(node3)
 
 # 当前的所有链接中，可能还有有效的文本，也就是4级别，这个仅判断firstresult即可
 def getresultFromMoreresult(setArray):
@@ -270,11 +281,11 @@ print(db)
 cursor = db.cursor()
 cursor.execute("DROP TABLE IF EXISTS TreeTest")
 
-sql = """CREATE TABLE ExaminationSituation21 (
+sql = """CREATE TABLE ExaminationSituation3 (
                                       ID INT PRIMARY KEY AUTO_INCREMENT,
                                       PARENTID INT(11),
                                       LINK  VARCHAR(255),
-                                      TITLE VARCHAR(255),
+                                      TITLE TEXT,
                                       TEXT TEXT
                                       )"""
 
@@ -300,33 +311,27 @@ def main():
     print('this message is from main function')
     nrows = sh.nrows
     x = 1
-    for i in range(5):
+    for i in range(nrows):
         testurl = sh.cell_value(i, 5)  # 依次读取每行第11列的数据，也就是 URL
         print("2、访问第%d个链接:" %x)
         x = x + 1
         print(testurl)
         getresult(testurl)
-        print('=' * 40)
         getresultFromSecondresult(secondresult)
-        print('=' * 40)
         getresultFromMoreresult(moreresult)
-        print('=' * 40)
-        print("结果")
         count = 1
         getresultFromFirstresult(firstresult)
         for key in firstresult:
-            print(
-                "标题%d：" % count + "      级别：%d" % key.status + "           " + key.title + "       链接 ：" + key.url + "        父链接 ：" + key.preurl)
+            print("标题%d：" % count  + "           " + key.title + "       链接 ：" + key.url + "        父链接 ：" + key.preurl)
             count = count + 1
             a = Article(key.url, language='zh')
-            if(a.download_state == 404):
-                continue
-            a.download()
-            if(a.download()):
+
+            if(get_proxy(key.url) != None):
+                a.download()
                 a.parse()
                 db.ping(reconnect=True)
                 status = 2;
-                sqlw = """INSERT INTO ExaminationSituation21 (PARENTID,LINK, TITLE, TEXT) VALUES (%d,%s,%s,%s)"""
+                sqlw = """INSERT INTO ExaminationSituation3 (PARENTID,LINK, TITLE, TEXT) VALUES (%d,%s,%s,%s)"""
                 data = (key.status, "'%s'" % key.url, "'%s'" % key.title, "'%s'" % a.text)
 
                 try:
@@ -336,38 +341,22 @@ def main():
                 except:
                     db.rollback()
                     print("插入数据失败")
-                db.close()
-        for key in secondresult:
-            print(
-                "标题%d：" % count + "      级别：%d" % key.status + "           " + key.title + "       链接 ：" + key.url + "        父链接 ：" + key.preurl)
-            count = count + 1
-            a = Article(key.url, language='zh')
-            if(a.download_state == 404):
-                continue
-            a.download()
-            if(a.download()):
-                a.parse()
-                db.ping(reconnect=True)
-                status = 2;
-                sqlw = """INSERT INTO ExaminationSituation21 (PARENTID,LINK, TITLE, TEXT) VALUES (%d,%s,%s,%s)"""
-                data = (key.status, "'%s'" % key.url, "'%s'" % key.title, "'%s'" % a.text)
 
-                try:
-                    cursor.execute(sqlw % data)
-                    db.commit()
-                    print('插入数据成功')
-                except:
-                    db.rollback()
-                    print("插入数据失败")
-                db.close()
-
-        print('=' * 40)
-        print('=' * 40)
-
-
-
-
+        firstresult.clear()
+        secondresult.clear()
+        moreresult.clear()
+    print('=' * 40)
 
 
 if __name__ == '__main__':
+    # sql = "DROP TABLE IF EXISTS ExaminationSituation3"
+    # try:
+    #     cursor.execute(sql)
+    #     print('table：ExaminationSituation3-已被删除')
+    # except Exception as e:
+    #     print(e)
     main()
+    db.close()
+
+
+
