@@ -113,13 +113,15 @@ moreresult = set()
 
 # 判断链接是否有效的list
 invalidLink = ['logout','login','void','javascript','void(0)','#','(0)']
-# invalidTitle = ['无障碍']
+invalidTitle = ['无障碍','404']
 
 # 判断是否可能包含有效子链接的判断条件
 possibleUse = ['公示公告', '公告栏', '通知公告', '考录', '招聘','招考','招录']
 
 
 def analysisurl(testurl):
+    if(get_proxy(testurl) == None):
+        return ''
     # 构造请求头
     urllist = [
         r"https://gitbook.cn/gitchat/columns?page=1&searchKey=&tag=",
@@ -141,31 +143,22 @@ def analysisurl(testurl):
         "Cookie": "__guid=54589117.3355346342630053000.1545469390794.6116; Hm_lvt_6bcd52f51e9b3dce32bec4a3997715ac=1545469392; _ga=GA1.2.525028080.1545469392; customerId=5c1dfddd1c648b470dce01bc; customerToken=7094f880-05c8-11e9-b37a-bbc022d7aefd; customerMail=; isLogin=yes; __utmz=54589117.1550903385.1.1.utmcsr=(direct)|utmccn=(direct)|utmcmd=(none); __utma=54589117.525028080.1545469392.1550986423.1551265116.3; _gid=GA1.2.1073060500.1552831283; aliyungf_tc=AQAAAD/RilUP4wcAn/Q5cZh/y5cvhjrW; connect.sid=s:dBSjH13Adl1RlFsC2zZlAxGDmFh2kF_F.Yf52AS5i06bgo8lsniQWt1F4NtgmI3rOrmjBIiLwR6Q; SERVER_ID=5aa5eb5e-f0eda04d; Hm_lvt_5667c6d502e51ebd8bd9e9be6790fb5d=1551698067,1551698230,1552831282,1552908428; monitor_count=29; Hm_lpvt_5667c6d502e51ebd8bd9e9be6790fb5d=1552909773",
         "Connection": "close"
     }
-
-    try:
-        response = requests.get(testurl, headers=headers)  # 获取网页数据
-        response.encoding = response.apparent_encoding  # 当获取的网页有乱码时加
-        soup = BeautifulSoup(response.text, 'html.parser')
-        return soup
-
-
-    # except requests.exceptions.ConnectionError:
-    #     print('Handle Exception')
-    #     time.sleep(5)
-    #     return ''
-    # except (requests.exceptions.SSLError, requests.exceptions.ConnectionError) as e:
-    #     print('请求太频繁')
-    #     if 'bad handshake' in str(e) or '10054' in str(e):  # 上述2种异常
-    #         return ''
-    #     else:
-    #         raise Exception(e)  # 其他异常，抛出来
-    #     return ''
-
-    #
-    except:
-        time.sleep(5)
-        print("做了个美美的梦，睡的很好, 那我们继续吧...")
-        return ''
+    for i in range(1,6):
+        requestSuccessful = 1
+        try:
+            response = requests.get(testurl, headers=headers)  # 获取网页数据
+            response.encoding = response.apparent_encoding  # 当获取的网页有乱码时加
+            soup = BeautifulSoup(response.text, 'html.parser')
+            return soup
+        except:
+            print("服务器拒绝连接........，休息5s ，第%d次    "%i + testurl)
+            time.sleep(5)
+            print("做了个美美的梦，睡的很好, 那我们继续吧...")
+            requestSuccessful = 0
+        if (i == 5):
+            return ''
+        if (requestSuccessful):
+            break
 
 # 判断具备有效招聘信息的1级链接，含有公告专栏的1级链接
 def getresult(testurl):
@@ -174,13 +167,32 @@ def getresult(testurl):
     if(soup == ''):
         return
     for x in soup.find_all('a',href = True):
+        if(x.title is not None):
+            title = x.title
+            url = GetLinkHasNetloc(testurl, x['href'])
+            if(get_proxy(url) != None):
+                isNotValidLink = any(word if word in x['href'] else False for word in invalidLink)
+                if (isNotValidLink):
+                    # print('×无效链接：不含有公告专栏的1级链接：' + url)
+                    pass
+                else:
+                    if ('招聘' in title):
+                        print('✓正常标题:' + url + '    标题:' + title)
+                        node1 = urlNode.make_struct(url, title, 1, testurl)
+                        firstresult.add(node1)
+                    isincludeUse = any(word if word in title else False for word in possibleUse)
+                    if (isincludeUse):
+                        print('我有可能具备有效的子链接哦:    ' + title + '    ' + url)
+                        node2 = urlNode.make_struct(url, title, 1, testurl)
+                        secondresult.add(node2)
+
         if(x.string is not None):
             title = str(x.string).replace('\n', '').replace('\t', '').replace(' ', '')
             url = GetLinkHasNetloc(testurl, x['href'])
-            if(url != ''):
+            if(get_proxy(url) != None):
                 isNotValidLink = any(word if word in x['href'] else False for word in invalidLink)
                 if(isNotValidLink):
-                    print('×无效链接：不含有公告专栏的1级链接：' + url)
+                    # print('×无效链接：不含有公告专栏的1级链接：' + url)
                     pass
                 else:
                     if('招聘' in title):
@@ -200,13 +212,30 @@ def getresultFromSecondresult(setArray):
         if(soup == ''):
             return
         for x in soup.find_all('a', href=True):
+            if (x.title is not None):
+                title = x.title
+                url = GetLinkHasNetloc(key.url, x['href'])
+                if (get_proxy(url) != None):
+                    isNotValidLink = any(word if word in x['href'] else False for word in invalidLink)
+                    if (isNotValidLink):
+                        # print('×无效链接：getresultFromSecondresult:不包含招聘信息的一级链接 : '  + title + '      '+url)
+                        pass
+                    else:
+                        if ('招聘' in title):
+                            print('✓正常标题:' + url + '    标题:' + title)
+                            node3 = urlNode.make_struct(url, title, 2, key.url)
+                            firstresult.add(node3)
+                        if ('更多' in title):
+                            node4 = urlNode.make_struct(url, title, 2, key.url)
+                            moreresult.add(node4)
+
             if (x.string is not None):
                 title = str(x.string).replace('\n', '').replace('\t', '').replace(' ', '')
                 url = GetLinkHasNetloc(key.url, x['href'])
-                if(url != ''):
+                if (get_proxy(url) != None):
                     isNotValidLink = any(word if word in x['href'] else False for word in invalidLink)
                     if (isNotValidLink):
-                        print('×无效链接：getresultFromSecondresult:不包含招聘信息的一级链接 : '  + title + '      '+url)
+                        # print('×无效链接：getresultFromSecondresult:不包含招聘信息的一级链接 : '  + title + '      '+url)
                         pass
                     else:
                         if ('招聘' in title):
@@ -224,13 +253,27 @@ def getresultFromMoreresult(setArray):
         if(soup == ''):
             return
         for x in soup.find_all('a', href=True):
+            if (x.title is not None):
+                title = x.title
+                url = GetLinkHasNetloc(key.url, x['href'])
+                if (get_proxy(url) != None):
+                    isNotValidLink = any(word if word in x['href'] else False for word in invalidLink)
+                    if (isNotValidLink):
+                        # print('×无效的"更多"链接：getresultFromMoreresult:' + title +'            '+ url )
+                        pass
+                    else:
+                        if ('招聘' in title):
+                            print('✓正常标题:' + url + '    标题:' + title)
+                            node3 = urlNode.make_struct(url, title, 3, key.url)
+                            firstresult.add(node3)
+
             if (x.string is not None):
                 title = str(x.string).replace('\n', '').replace('\t', '').replace(' ', '')
                 url = GetLinkHasNetloc(key.url, x['href'])
-                if(url != ''):
+                if (get_proxy(url) != None):
                     isNotValidLink = any(word if word in x['href'] else False for word in invalidLink)
                     if (isNotValidLink):
-                        print('×无效的"更多"链接：getresultFromMoreresult:' + title +'            '+ url )
+                        # print('×无效的"更多"链接：getresultFromMoreresult:' + title +'            '+ url )
                         pass
                     else:
                         if ('招聘' in title):
@@ -245,13 +288,27 @@ def getresultFromMoreresult(setArray):
         if(soup == ''):
             return
         for x in soup.find_all('a', href=True):
+            if (x.title is not None):
+                title = x.title
+                url = GetLinkHasNetloc(key.url, x['href'])
+                if (get_proxy(url) != None):
+                    isNotValidLink = any(word if word in x['href'] else False for word in invalidLink)
+                    if (isNotValidLink):
+                        # print('×无效链接：四级别下的无效链接:getresultFromMoreresult:' + title + '           '+url)
+                        pass
+                    else:
+                        if ('招聘' in title):
+                            print('✓正常标题:' + url + '    标题:' + title)
+                            node3 = urlNode.make_struct(url, title, 3, key.url)
+                            firstresult.add(node3)
+
             if (x.string is not None):
                 title = str(x.string).replace('\n', '').replace('\t', '').replace(' ', '')
                 url = GetLinkHasNetloc(key.url, x['href'])
-                if(url != ''):
+                if (get_proxy(url) != None):
                     isNotValidLink = any(word if word in x['href'] else False for word in invalidLink)
                     if (isNotValidLink):
-                        print('×无效链接：四级别下的无效链接:getresultFromMoreresult:' + title + '           '+url)
+                        # print('×无效链接：四级别下的无效链接:getresultFromMoreresult:' + title + '           '+url)
                         pass
                     else:
                         if ('招聘' in title):
@@ -263,16 +320,16 @@ def getresultFromMoreresult(setArray):
 
 def getresultFromFirstresult(setArray):
     for key in setArray.copy():
+        if ('无障碍' in key.title):
+            return
         soup = analysisurl(key.url)
         if(soup == ''):
             return
         for x in soup.find_all('a', href=True):
-            if (x.string is not None):
-                title = str(x.string).replace('\n', '').replace('\t', '').replace(' ', '')
-                if('无障碍' in title):
-                    return
+            if (x.title is not None):
+                title = x.title
                 url = GetLinkHasNetloc(key.url, x['href'])
-                if(url != ''):
+                if (get_proxy(url) != None):
                     isNotValidLink = any(word if word in x['href'] else False for word in invalidLink)
                     if (isNotValidLink):
                         print('×无效链接：getresultFromFirstresult :' + url + '            ' + title)
@@ -283,11 +340,20 @@ def getresultFromFirstresult(setArray):
                             node3 = urlNode.make_struct(url, title, 4, key.url)
                             firstresult.add(node3)
                             # 如果这个下面还有招聘，则说明现在的链接可以删除了
-            # else:
-            #     if(x.title is not None):
-
-
-
+            if (x.string is not None):
+                title = str(x.string).replace('\n', '').replace('\t', '').replace(' ', '')
+                url = GetLinkHasNetloc(key.url, x['href'])
+                if (get_proxy(url) != None):
+                    isNotValidLink = any(word if word in x['href'] else False for word in invalidLink)
+                    if (isNotValidLink):
+                        print('×无效链接：getresultFromFirstresult :' + url + '            ' + title)
+                        pass
+                    else:
+                        if ('招聘' in title):
+                            print('✓正常标题:' + url + '    标题:' + title)
+                            node3 = urlNode.make_struct(url, title, 4, key.url)
+                            firstresult.add(node3)
+                            # 如果这个下面还有招聘，则说明现在的链接可以删除了
 
 db = pymysql.connect(host='localhost',
                                      port=3306,
@@ -303,25 +369,25 @@ print(db)
 cursor = db.cursor()
 cursor.execute("DROP TABLE IF EXISTS TreeTest")
 
-# sql = """CREATE TABLE ExaminationSituation5 (
-#                                       ID INT PRIMARY KEY AUTO_INCREMENT,
-#                                       PARENTID INT(11),
-#                                       LINK  VARCHAR(255),
-#                                       TITLE TEXT,
-#                                       TEXT TEXT
-#                                       )"""
+sql = """CREATE TABLE ExaminationSituation10 (
+                                      ID INT PRIMARY KEY AUTO_INCREMENT,
+                                      PARENTID INT(11),
+                                      LINK  VARCHAR(255),
+                                      TITLE TEXT,
+                                      TEXT TEXT
+                                      )"""
 
 try:
     cursor = db.cursor()
-    # cursor.execute(sql)
+    cursor.execute(sql)
 except:
     db.ping()
     cursor = db.cursor()
-    # cursor.execute(sql)
+    cursor.execute(sql)
 
 def main():
     # 选择数据源
-    read_path = "../DataSourceFile/sp_govs数据测试.xlsx"
+    read_path = "../DataSourceFile/sp_govs.xlsx"
 
     bk = xlrd.open_workbook(read_path)
     shxrange = range(bk.nsheets)
@@ -357,16 +423,16 @@ def main():
 
                 db.ping(reconnect=True)
                 status = 2;
-                sqlw = """INSERT INTO ExaminationSituation5 (PARENTID,LINK, TITLE, TEXT) VALUES (%d,%s,%s,%s)"""
+                sqlw = """INSERT INTO ExaminationSituation10 (PARENTID,LINK, TITLE, TEXT) VALUES (%d,%s,%s,%s)"""
                 data = (key.status, "'%s'" % key.url, "'%s'" % key.title, "'%s'" % a.text)
 
                 try:
                     cursor.execute(sqlw % data)
                     db.commit()
-                    print('插入数据成功')
+                    # print('插入数据成功')
                 except:
                     db.rollback()
-                    print("插入数据失败")
+                    # print("插入数据失败")
 
         firstresult.clear()
         secondresult.clear()
