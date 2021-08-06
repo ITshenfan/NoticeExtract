@@ -369,7 +369,7 @@ print(db)
 cursor = db.cursor()
 cursor.execute("DROP TABLE IF EXISTS TreeTest")
 
-sql = """CREATE TABLE ExaminationSituation10 (
+sql = """CREATE TABLE ExaminationSituation11 (
                                       ID INT PRIMARY KEY AUTO_INCREMENT,
                                       PARENTID INT(11),
                                       LINK  VARCHAR(255),
@@ -399,7 +399,7 @@ def main():
     print('this message is from main function')
     nrows = sh.nrows
     x = 1
-    for i in range(nrows):
+    for i in range(3):
         testurl = sh.cell_value(i, 5)  # 依次读取每行第11列的数据，也就是 URL
         print("访问第%d个链接:" %x)
         x = x + 1
@@ -423,7 +423,7 @@ def main():
 
                 db.ping(reconnect=True)
                 status = 2;
-                sqlw = """INSERT INTO ExaminationSituation10 (PARENTID,LINK, TITLE, TEXT) VALUES (%d,%s,%s,%s)"""
+                sqlw = """INSERT INTO ExaminationSituation11 (PARENTID,LINK, TITLE, TEXT) VALUES (%d,%s,%s,%s)"""
                 data = (key.status, "'%s'" % key.url, "'%s'" % key.title, "'%s'" % a.text)
 
                 try:

@@ -169,6 +169,8 @@ def getresult(testurl):
     soup = analysisurl(testurl)
     if(soup == ''):
         return
+    # 后续可根据这个名字来进行级别的判断
+    print('确定源的名称soup.head.title.string：  ' + soup.head.title.string)
     for x in soup.find_all('a',href = True):
         title = None
         if(x.string is not None):
@@ -187,20 +189,17 @@ def getresult(testurl):
 # 创建结点，判断当前的逻辑，加入到对应的集合
 def addnode(url,title,status,preurl):
     if ('招聘' in title):
-        print('✓firstresult:' + url  + title)
         node1 = urlNode.make_struct(url, title, status, preurl)
-        print('firstresult: ' + url + title)
+        # print('firstresult: ' + url + title)
         firstresult.add(node1)
     if (status == 1):
         isincludeUse = any(word if word in title else False for word in possibleUse)
         if (isincludeUse):
-            print('我有可能具备有效的子链接哦:    ' + title + '    ' + url)
+            print('我有可能具备有效的子链接哦:    加入到secondresult吧     ' + title + '    ' + url)
             node2 = urlNode.make_struct(url, title, status, preurl)
-            print('secondresult: ' + url + title)
             secondresult.add(node2)
     if (status == 2):
         if ('更多' in title):
-            # print('✓更多:' + url + '    标题:' + title)
             node4 = urlNode.make_struct(url, title, status, preurl)
             print('moreresult:' + url + title)
             moreresult.add(node4)

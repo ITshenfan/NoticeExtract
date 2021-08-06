@@ -8,6 +8,7 @@ from fake_useragent import UserAgent
 from urllib import parse
 from fake_useragent import UserAgent
 import bs4
+import jieba
 from newspaper import Article
 import requests  #爬取网页的库
 from bs4 import BeautifulSoup #用于解析网页的库
@@ -25,6 +26,7 @@ from scrapy import signals
 from twisted.enterprise import adbapi
 from pymysql import cursors
 import random
+from cocoNLP.extractor import extractor
 
 
 # 定义
@@ -46,21 +48,80 @@ invalidTitle = ['无障碍', '404']
 possibleUse = ['公示公告', '公告栏', '通知公告', '考录', '招聘', '招考', '招录']
 
 
+# 判断项目类型，教招为1，其他为0
+teacherRecruitment = ['教师', '辅导员']
+
+
+# 判断公告类型，省统考、市统考、市单招、区县单招
+universityRecruitment = ['大学', '学院', '专科']
+
+
 # 使用类创建结构体
 class urlNode(object):
     class Struct(object):
-        def __init__(self, url,title,status,preurl):
+        def __init__(self, url,title,status,preurl,province_city_county):
             self.url = url
             self.title = title
             self.status = status
             self.preurl = preurl
+            # 存储数据源的名称，后续抽取出省市县
+            self.province_city_county = province_city_county
+            # # 教招类型，教招为1，其他为0
+            # self.noticeType = noticeType
+            # # 公告类型，省统考、市统考、市单招、区县单招
+            # self.noticecategory = noticecategory
+            # # 编制类型，编制为1，其他为0
+            # self.organizationType = organizationType
 
-    def make_struct(self, url,title,status,preurl):
-        return self.Struct(url,title,status,preurl)
+
+    def make_struct(self, url,title,status,preurl,province_city_county):
+        return self.Struct(url,title,status,preurl,province_city_county)
 urlNode = urlNode()
 
+# 判断教招类型，教招为1，其他为0
+def noticeType(title) -> str:
+    isteacher = any(word if word in title else False for word in teacherRecruitment)
+    if (isteacher):
+        return '教招'
+    else:
+        if('编制' in title):
+            return '编制'
+        else:
+            return '其他'
 
 
+# 判断公告类型，省统考、市统考、市单招、区县单招
+def noticecategory(title)-> str:
+    # 判断公告类型
+    # 省统考:1
+    # 市统考:2
+    # 市单招:3
+    # 区县单招:4
+    if('区' in title):
+        return '区县单招'
+    if('县' in title):
+        return '区县单招'
+    if ('市' in title):
+        return '市单招'
+    isuniversity = any(word if word in title else False for word in universityRecruitment)
+    if (isuniversity):
+            return '市统考'
+    if('省' in title):
+        return '省统考'
+    isteacher = any(word if word in title else False for word in teacherRecruitment)
+    if (isteacher):
+        return '市单招'
+    else:
+        return '未知类型'
+
+# 判断编制类型，编制为1，其他为0
+def organizationType(title)-> str:
+    if ('编制' in title):
+        return '编制'
+    else:
+        return '合同制'
+
+# 链接是否返回404
 def get_proxy(url):
     try:
         if(url == ''):
@@ -147,7 +208,6 @@ def analysisurl(testurl):
         "Connection": "close"
     }
     for i in range(1,6):
-        requestSuccessful = 1
         try:
             response = requests.get(testurl, headers=headers)  # 获取网页数据
             response.encoding = response.apparent_encoding  # 当获取的网页有乱码时加
@@ -169,8 +229,12 @@ def getresult(testurl):
     soup = analysisurl(testurl)
     if(soup == ''):
         return
+    # 后续可根据这个名字来进行级别的判断
+    sourcename = None
+    if (soup.head.title.string != None):
+        sourcename = soup.head.title.string
+        print('确定源的名称：  ' + sourcename)
     for x in soup.find_all('a',href = True):
-        title = None
         if(x.string is not None):
             title = str(x.string).replace('\n', '').replace('\t', '').replace(' ', '')
         if(x.title is not None):
@@ -182,26 +246,26 @@ def getresult(testurl):
                 if (isNotValidLink):
                     pass
                 else:
-                    addnode(url,title,1,testurl)
+                    addnode(url,title,1,testurl,sourcename)
 
 # 创建结点，判断当前的逻辑，加入到对应的集合
-def addnode(url,title,status,preurl):
+def addnode(url,title,status,preurl,province_city_county):
     if ('招聘' in title):
-        print('✓firstresult:' + url  + title)
-        node1 = urlNode.make_struct(url, title, status, preurl)
-        print('firstresult: ' + url + title)
+        node1 = urlNode.make_struct(url, title, status, preurl,province_city_county)
         firstresult.add(node1)
+        notice = noticeType(node1.title)
+        category = noticecategory(node1.title)
+        organization = organizationType(node1.title)
+        print('√' + title + "        : " + str(notice) + "    " + str(category) + "      " + str(organization) + "  " )
     if (status == 1):
         isincludeUse = any(word if word in title else False for word in possibleUse)
         if (isincludeUse):
-            print('我有可能具备有效的子链接哦:    ' + title + '    ' + url)
-            node2 = urlNode.make_struct(url, title, status, preurl)
-            print('secondresult: ' + url + title)
+            print('我有可能具备有效的子链接哦,in>>>>secondresult    ' + title + '    ' + url + '     ')
+            node2 = urlNode.make_struct(url, title, status, preurl,province_city_county)
             secondresult.add(node2)
     if (status == 2):
         if ('更多' in title):
-            # print('✓更多:' + url + '    标题:' + title)
-            node4 = urlNode.make_struct(url, title, status, preurl)
+            node4 = urlNode.make_struct(url, title, status, preurl,province_city_county)
             print('moreresult:' + url + title)
             moreresult.add(node4)
 
@@ -228,12 +292,48 @@ def useful_title(setArray):
                     if (isNotValidLink):
                         pass
                     else:
-                        # print('useful_title ：' + url + '%d'%(key.status + 1))
-                        addnode(url, title, key.status + 1, key.url)
+                        sourcename = None
+                        if (soup.head.title.string != None):
+                            sourcename = soup.head.title.string
+
+                        addnode(url, title, key.status + 1, key.url,sourcename)
+
+fileStatus = ['doc','docx','pdf','xls','xls','ppt','pptx','txt']
+fileSource = None
+# 判断当前链接下是否有附件
+def get_file(url) ->str:
+    soup = analysisurl(url)
+    if (soup == ''):
+        print('soup为空' + url)
+        return None
+    for x in soup.find_all('a', href=True):
+        url = GetLinkHasNetloc(url, x['href'])
+        title = None
+        if (get_proxy(url) != None):
+            if (x.title is not None):
+                title = x.title
+            if (x.string is not None):
+                title = str(x.string).replace('\n', '').replace('\t', '').replace(' ', '')
+            if (title is not None):
+                url = GetLinkHasNetloc(url, x['href'])
+                if (get_proxy(url) != None):
+                    isfileStatus = any(word if word in x['href'] else False for word in fileStatus)
+                    if(isfileStatus):
+                        global fileSource
+                        print(fileSource)
+                        if(fileSource == None):
+                            fileSource = url
+                        else:
+                            fileSource = fileSource + '&' + url
+    if(fileSource == None):
+        return None
+    else:
+        print('我真的好强壮啊' + fileSource)
+        return fileSource
 
 # 选择数据源
 def select_datasource():
-    read_path = "sp_govs.xlsx"
+    read_path = "DataSourceFile/sp_govs.xlsx"
 
     bk = xlrd.open_workbook(read_path)
     shxrange = range(bk.nsheets)
@@ -256,50 +356,75 @@ db = pymysql.connect(host='localhost',
 
 )  # 连接数据库
 
-# cursor = db.cursor()
-# cursor.execute("DROP TABLE IF EXISTS TreeTest")
-#
-# sql = """CREATE TABLE SUCCESS1 (
-#                                       ID INT PRIMARY KEY AUTO_INCREMENT,
-#                                       PARENTID INT(11),
-#                                       LINK  VARCHAR(255),
-#                                       TITLE TEXT,
-#                                       TEXT TEXT
-#                                       )"""
-# try:
-#     cursor = db.cursor()
-#     cursor.execute(sql)
-# except:
-#     db.ping()
-#     cursor = db.cursor()
-#     cursor.execute(sql)
+cursor = db.cursor()
+cursor.execute("DROP TABLE IF EXISTS TreeTest")
+
+sql = """CREATE TABLE SUCCESS12 (ID INT PRIMARY KEY AUTO_INCREMENT,
+                                  公告级别id INT(11),
+                                  公告标签 TEXT,
+                                  省份 VARCHAR(255),
+                                  地市 VARCHAR(255),
+                                  区县 VARCHAR(255),
+                                  项目类型 VARCHAR(255),
+                                  公告类型 VARCHAR(255),
+                                  编制情况 VARCHAR(255),
+                                  公告名称 TEXT,
+                                  公告链接 VARCHAR(255),
+                                  公告原网链接 VARCHAR(255),
+                                  公告父链接 VARCHAR(255),
+                                  招录人数 INT(11),
+                                  招录岗位数 INT(11),
+                                  公告发布时间 VARCHAR(255),
+                                  公告正文 TEXT,
+                                  附件链接 VARCHAR(255)
+                                  )"""
+try:
+    cursor = db.cursor()
+    cursor.execute(sql)
+except:
+    db.ping()
+    cursor = db.cursor()
+    cursor.execute(sql)
 
 
 def savedata():
     count = 1
     for key in firstresult:
-        print(
-            "标题%d：" % count + "      级别：%d" % key.status + "           " + key.title + "       链接 ：" + key.url + "        父链接 ：" + key.preurl)
-        count = count + 1
-        a = Article(key.url, language='zh')
         if (get_proxy(key.url) != None):
+
+            count = count + 1
+            a = Article(key.url, language='zh')
+            # print("标题%d：" % count + "      级别：%d" % key.status + "    " + key.title + "       链接 ：" + key.url + "        父链接 ：" + key.preurl + key.province_city_county + noticeType(
+            #         key.title) + "    " + noticecategory(key.title) + "      " + organizationType(key.title) + "  " + a.publish_date + "    tag:" + a.tags)
             try:
                 a.download()
                 a.parse()
             except newspaper.article.ArticleException:
                 continue
 
-            # db.ping(reconnect=True)
-            # sqlw = """INSERT INTO SUCCESS1 (PARENTID,LINK, TITLE, TEXT) VALUES (%d,%s,%s,%s)"""
-            # data = (key.status, "'%s'" % key.url, "'%s'" % key.title, "'%s'" % a.text)
-            #
-            # try:
-            #     cursor.execute(sqlw % data)
-            #     db.commit()
-            #     print('插入数据成功')
-            # except:
-            #     db.rollback()
-            #     print("插入数据失败")
+            ex = extractor()
+            locations = ex.extract_locations(a.text)
+            # print(locations)
+            # print(noticeType(a.title))
+
+            # print(count)
+            # print(key.province_city_county)
+            # print(noticeType(key.title))
+            # print(key.title)
+            # print(key.url)
+            print(get_file(key.url))
+            db.ping(reconnect=True)
+            sqlw = """INSERT INTO SUCCESS12 (公告级别id,公告标签, 省份,地市,区县,项目类型,公告类型,编制情况,公告名称,公告链接,公告原网链接,公告父链接,招录人数,招录岗位数,公告发布时间,公告正文,附件链接) VALUES (%d,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%d,%d,%s,%s,%s)"""
+            data = (key.status,"'None'","'%s'"%key.province_city_county,"'%s'"%key.province_city_county,"'%s'"%key.province_city_county,"'%s'"%noticeType(key.title),"'%s'"%noticecategory(key.title),"'%s'"%organizationType(key.title),"'%s'"%key.title,"'%s'"%key.url,"'%s'"%key.preurl,"'%s'"%key.preurl,count,count,"'%s'"%a.publish_date,"'%s'"%a.text,"'%s'"%get_file(key.url))
+            global fileSource
+            fileSource = None
+            try:
+                cursor.execute(sqlw % data)
+                db.commit()
+                print('插入数据成功')
+            except:
+                db.rollback()
+                print("插入数据失败")
 
 # 链接的爬取和处理
 def visitlink(testurl):
@@ -307,27 +432,30 @@ def visitlink(testurl):
     getresult(testurl)
     useful_title(secondresult)
     useful_title(moreresult)
-    useful_title(firstresult)
+    # useful_title(firstresult)
 
 
 def main():
     # 选择数据源
     sh,nrows = select_datasource()
     x = 1
-    for i in range(2):
-        testurl = sh.cell_value(i, 5)
-        print("访问第%d个链接:" %x)
-        x = x + 1
-        # 处理链接
-        visitlink(testurl)
-        # 保存数据
-        savedata()
-        # 清除当前链接相关的数据集合
-        firstresult.clear()
-        secondresult.clear()
-        moreresult.clear()
+    # for i in range(nrows):
+    #     testurl = sh.cell_value(i, 5)
+    #     print("访问第%d个链接:" %x)
+    #     x = x + 1
+    #     # 处理链接
+    #     visitlink(testurl)
+    #     # 保存数据
+    #     savedata()
+    #     # 清除当前链接相关的数据集合
+    #     firstresult.clear()
+    #     secondresult.clear()
+    #     moreresult.clear()
     db.close()
     print('=' * 40)
+    url = 'http://www.panzhihua.gov.cn/zwgk/rsxx/rskl/1893885.shtml'
+    print(get_file(url))
+
 
 if __name__ == '__main__':
     main()
