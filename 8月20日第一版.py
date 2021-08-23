@@ -237,7 +237,11 @@ def analysisurl(testurl):
 # 判断具备有效招聘信息的1级链接，含有公告专栏的1级链接
 def getresult(testurl):
     soup = analysisurl(testurl)
-    if(soup == ''):
+    if(soup == '' ):
+        return
+    if(soup.head == None):
+        return
+    if(soup.head.title == None):
         return
     # 后续可根据这个名字来进行级别的判断
     sourcename = None
@@ -245,6 +249,7 @@ def getresult(testurl):
         sourcename = soup.head.title.string
         print('确定源的名称：  ' + sourcename)
     for x in soup.find_all('a',href = True):
+        title = None
         if(x.string is not None):
             title = str(x.string).replace('\n', '').replace('\t', '').replace(' ', '')
         if(x.title is not None):
@@ -321,10 +326,10 @@ def get_file(url) ->str:
         urlist = GetLinkHasNetloc(url, x['href'])
         # print('urlist   ' + urlist)
         if(urlist != ''):
-            # if('doc' in urlist):
-            #     print('1hahahhhahahahha     ' + urlist)
-            # if('xls' in urlist):
-            #     print('2hahahhhahahahha      ' + urlist)
+            if('doc' in urlist):
+                print('1hahahhhahahahha     ' + urlist)
+            if('xls' in urlist):
+                print('2hahahhhahahahha      ' + urlist)
 
             title = None
             if (get_proxy(urlist) != None):
@@ -343,7 +348,7 @@ def get_file(url) ->str:
     if(fileSource == None):
         return None
     else:
-        print('我真的好强壮啊' + fileSource)
+        # print('我真的好强壮啊' + fileSource)
         return fileSource
 
 # 选择数据源
@@ -374,32 +379,32 @@ db = pymysql.connect(host='localhost',
 cursor = db.cursor()
 cursor.execute("DROP TABLE IF EXISTS TreeTest")
 
-# sql = """CREATE TABLE SUCCESS11 (ID INT PRIMARY KEY AUTO_INCREMENT,
-#                                   公告级别id INT(11),
-#                                   公告标签 TEXT,
-#                                   省份 VARCHAR(255),
-#                                   地市 VARCHAR(255),
-#                                   区县 VARCHAR(255),
-#                                   项目类型 VARCHAR(255),
-#                                   公告类型 VARCHAR(255),
-#                                   编制情况 VARCHAR(255),
-#                                   公告名称 TEXT,
-#                                   公告链接 VARCHAR(255),
-#                                   公告原网链接 VARCHAR(255),
-#                                   公告父链接 VARCHAR(255),
-#                                   招录人数 INT(11),
-#                                   招录岗位数 INT(11),
-#                                   公告发布时间 VARCHAR(255),
-#                                   公告正文 TEXT,
-#                                   附件链接 VARCHAR(255)
-#                                   )"""
-# try:
-#     cursor = db.cursor()
-#     cursor.execute(sql)
-# except:
-#     db.ping()
-#     cursor = db.cursor()
-#     cursor.execute(sql)
+sql = """CREATE TABLE SUCCESS18 (ID INT PRIMARY KEY AUTO_INCREMENT,
+                                  公告级别id INT(11),
+                                  公告标签 TEXT,
+                                  省份 VARCHAR(255),
+                                  地市 VARCHAR(255),
+                                  区县 VARCHAR(255),
+                                  项目类型 VARCHAR(255),
+                                  公告类型 VARCHAR(255),
+                                  编制情况 VARCHAR(255),
+                                  公告名称 TEXT,
+                                  公告链接 VARCHAR(255),
+                                  公告原网链接 VARCHAR(255),
+                                  公告父链接 VARCHAR(255),
+                                  招录人数 INT(11),
+                                  招录岗位数 INT(11),
+                                  公告发布时间 VARCHAR(255),
+                                  公告正文 TEXT,
+                                  附件链接 VARCHAR(255)
+                                  )"""
+try:
+    cursor = db.cursor()
+    cursor.execute(sql)
+except:
+    db.ping()
+    cursor = db.cursor()
+    cursor.execute(sql)
 
 
 def savedata():
@@ -429,7 +434,7 @@ def savedata():
             # print(key.url)
             # print(get_file(key.url))
             db.ping(reconnect=True)
-            sqlw = """INSERT INTO SUCCESS11 (公告级别id,公告标签, 省份,地市,区县,项目类型,公告类型,编制情况,公告名称,公告链接,公告原网链接,公告父链接,招录人数,招录岗位数,公告发布时间,公告正文,附件链接) VALUES (%d,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%d,%d,%s,%s,%s)"""
+            sqlw = """INSERT INTO SUCCESS18 (公告级别id,公告标签, 省份,地市,区县,项目类型,公告类型,编制情况,公告名称,公告链接,公告原网链接,公告父链接,招录人数,招录岗位数,公告发布时间,公告正文,附件链接) VALUES (%d,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%d,%d,%s,%s,%s)"""
             data = (key.status,"'None'","'%s'"%key.province_city_county,"'%s'"%key.province_city_county,"'%s'"%key.province_city_county,"'%s'"%noticeType(key.title),"'%s'"%noticecategory(key.title),"'%s'"%organizationType(key.title),"'%s'"%key.title,"'%s'"%key.url,"'%s'"%key.preurl,"'%s'"%key.preurl,count,count,"'%s'"%a.publish_date,"'%s'"%a.text,"'%s'"%get_file(key.url))
             global fileSource
             fileSource = None
@@ -454,22 +459,22 @@ def main():
     # 选择数据源
     sh,nrows = select_datasource()
     x = 1
-    # for i in range(nrows):
-    #     testurl = sh.cell_value(i, 5)
-    #     print("访问第%d个链接:" %x)
-    #     x = x + 1
-    #     # 处理链接
-    #     visitlink(testurl)
-    #     # 保存数据
-    #     savedata()
-    #     # 清除当前链接相关的数据集合
-    #     firstresult.clear()
-    #     secondresult.clear()
-    #     moreresult.clear()
+    for i in range(nrows):
+        testurl = sh.cell_value(i, 5)
+        print("访问第%d个链接:" %x)
+        x = x + 1
+        # 处理链接
+        visitlink(testurl)
+        # 保存数据
+        savedata()
+        # 清除当前链接相关的数据集合
+        firstresult.clear()
+        secondresult.clear()
+        moreresult.clear()
     db.close()
     print('=' * 40)
-    url1 = 'http://www.panzhihua.gov.cn/zwgk/rsxx/rskl/1893885.shtml'
-    print(get_file(url1))
+    # url1 = 'http://www.panzhihua.gov.cn/zwgk/rsxx/rskl/1893885.shtml'
+    # print(get_file(url1))
     # url2 = '/uploadfiles/202105/25/2021052516314481528169.doc'
     # print(GetLinkHasNetloc(url1,url2))
 

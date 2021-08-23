@@ -439,18 +439,18 @@ def main():
     # 选择数据源
     sh,nrows = select_datasource()
     x = 1
-    # for i in range(nrows):
-    #     testurl = sh.cell_value(i, 5)
-    #     print("访问第%d个链接:" %x)
-    #     x = x + 1
-    #     # 处理链接
-    #     visitlink(testurl)
-    #     # 保存数据
-    #     savedata()
-    #     # 清除当前链接相关的数据集合
-    #     firstresult.clear()
-    #     secondresult.clear()
-    #     moreresult.clear()
+    for i in range(nrows):
+        testurl = sh.cell_value(i, 5)
+        print("访问第%d个链接:" %x)
+        x = x + 1
+        # 处理链接
+        visitlink(testurl)
+        # 保存数据
+        savedata()
+        # 清除当前链接相关的数据集合
+        firstresult.clear()
+        secondresult.clear()
+        moreresult.clear()
     db.close()
     print('=' * 40)
     url = 'http://www.panzhihua.gov.cn/zwgk/rsxx/rskl/1893885.shtml'
