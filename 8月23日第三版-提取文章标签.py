@@ -381,7 +381,7 @@ db = pymysql.connect(host='localhost',
 cursor = db.cursor()
 cursor.execute("DROP TABLE IF EXISTS TreeTest")
 
-sql = """CREATE TABLE Data5 (ID INT PRIMARY KEY AUTO_INCREMENT,
+sql = """CREATE TABLE Data4 (ID INT PRIMARY KEY AUTO_INCREMENT,
                                   公告级别id INT(11),
                                   公告标签 TEXT,
                                   省份 VARCHAR(255),
@@ -421,18 +421,15 @@ class location(object):
 location = location()
 
 def getLocation(text):
-    print('cpca.transform_text_with_addrs解析')
-    try:
+    if(text == ''):
+        locationNode = location.make_struct('None', 'None', 'None')
+        return locationNode
+    else:
         df = cpca.transform_text_with_addrs(text)
         province = df['省'].get(0)
         city = df['市'].get(0)
         area = df['区'].get(0)
-        locationNode = location.make_struct(province, city, area)
-        print('解析成功')
-        return locationNode
-    except:
-        locationNode = location.make_struct('None', 'None', 'None')
-        print('解析失败，文中没有地址信息哈')
+        locationNode = location.make_struct(province,city,area)
         return locationNode
 
 
@@ -443,6 +440,8 @@ def savedata():
 
             count = count + 1
             a = Article(key.url, language='zh')
+            # print("标题%d：" % count + "      级别：%d" % key.status + "    " + key.title + "       链接 ：" + key.url + "        父链接 ：" + key.preurl + key.url_name + noticeType(
+            #         key.title) + "    " + noticecategory(key.title) + "      " + organizationType(key.title) + "  " + a.publish_date + "    tag:" + a.tags)
             try:
                 a.download()
                 a.parse()
@@ -458,23 +457,11 @@ def savedata():
             # print(key.url_name)
             # print(noticeType(key.title))
             # print(key.title)
-            print(key.url)
+            # print(key.url)
             # print(get_file(key.url))
             db.ping(reconnect=True)
-            textAll = None
-            if(key.title != None):
-                textAll = key.title
-            if(a.text != None):
-                textAll = textAll + a.text
-            print('=' * 40)
-            print(textAll)
-            print('=' * 40)
-            print(getLocation(textAll).province)
-            print(getLocation(textAll).city)
-            print(getLocation(textAll).area)
-            print('=' * 40)
-
-            sqlw = """INSERT INTO Data5 (公告级别id,公告标签, 省份,地市,区县,项目类型,公告类型,编制情况,公告名称,公告链接,公告原网链接,公告父链接,招录人数,招录岗位数,公告发布时间,公告正文,附件链接) VALUES (%d,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%d,%d,%s,%s,%s)"""
+            textAll = a.text
+            sqlw = """INSERT INTO Data4 (公告级别id,公告标签, 省份,地市,区县,项目类型,公告类型,编制情况,公告名称,公告链接,公告原网链接,公告父链接,招录人数,招录岗位数,公告发布时间,公告正文,附件链接) VALUES (%d,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%d,%d,%s,%s,%s)"""
             data = (key.status,"'None'","'%s'"%getLocation(textAll).province,"'%s'"%getLocation(textAll).city,"'%s'"%getLocation(textAll).area,"'%s'"%noticeType(key.title),"'%s'"%noticecategory(key.title),"'%s'"%organizationType(key.title),"'%s'"%key.title,"'%s'"%key.url,"'%s'"%key.preurl,"'%s'"%key.preurl,count,count,"'%s'"%a.publish_date,"'%s'"%a.text,"'%s'"%get_file(key.url))
             global fileSource
             fileSource = None
@@ -484,7 +471,7 @@ def savedata():
                 print('插入数据成功')
             except:
                 db.rollback()
-                print("插入数据失败:   " + key.url + '  ' + a.text)
+                print("插入数据失败")
 
 # 链接的爬取和处理
 def visitlink(testurl):
